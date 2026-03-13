@@ -1,27 +1,32 @@
 #include "webServer.h"
 
-WebServer::WebServer(int Port, TrigMode TriMode, int Timeout, bool OptLinger,
-    const char* DBHost, int DBPort, const char* UserName, const char* Pwd, const char* DBName, int MaxDBConn, // 数据库连接初始化
-    int ThreadNum,  // 线程池初始化
-    bool OpenLog, LogLevel LLevel, int LQueueSize)  // 日志初始化
-    : listenPort_(Port),
-    httpTimeout_(Timeout),
-    optLinger_(OptLinger),
-    threadPool_(ThreadNum),
+WebServer::WebServer(const std::string& ConfigPath)  // 日志初始化
+    :
+    threadPool_(4),
     timer_(),
     epoller_() {
-    // srcDir_ = getcwd(nullptr, 256);
-    // assert(srcDir_);
-    // strcat(srcDir_, "/resource/");
-    srcDir_ = "/home/deng/WebServer/resources/";
-    InitEventMode_(TriMode);
-    HttpConn::PreInit(srcDir_, httpConnEvtMode_ & EPOLLET);
+
+    ConfigManager::Instance()->Init(ConfigPath.c_str());
+
+    InitEventMode_();
+    listenPort_ = ConfigManager::Instance()->GetValue_server("port", 9909);
+    httpTimeout_ = ConfigManager::Instance()->GetValue_server("timeOut", -1);
 
     // 日志初始化
-    Log::Instance()->Init(LLevel, "./logFiles", ".log", LQueueSize);
+    LogLevel LLevel = static_cast<LogLevel>(ConfigManager::Instance()->GetValue_log("level", 1));
+    const char* logPath = ConfigManager::Instance()->GetValue_log("path", "./logFiles");
+    const char* suffix = ConfigManager::Instance()->GetValue_log("suffix", ".log");
+    int LQueueSize = static_cast<int>(ConfigManager::Instance()->GetValue_log("queueSize", 1024));
+    Log::Instance()->Init(LLevel, logPath, suffix, LQueueSize);
 
     // 数据库连接初始化
-    SqlConnPool::Instance()->Init(DBHost, DBPort, UserName, Pwd, DBName, MaxDBConn);
+    const char* host = ConfigManager::Instance()->GetValue_database("host", "localhost");
+    uint16_t port = static_cast<uint16_t>(ConfigManager::Instance()->GetValue_database("port", 3306));
+    const char* username = ConfigManager::Instance()->GetValue_database("userName", "deng");
+    const char* password = ConfigManager::Instance()->GetValue_database("password", "deng");
+    const char* dbName = ConfigManager::Instance()->GetValue_database("dbName", "WebServer");
+    long maxDBConn = ConfigManager::Instance()->GetValue_database("maxDBConn", 16);
+    SqlConnPool::Instance()->Init(host, port, username, password, dbName, maxDBConn);
 
     // socket初始化，建立监听
     if (!InitSocket_()) {
@@ -31,13 +36,12 @@ WebServer::WebServer(int Port, TrigMode TriMode, int Timeout, bool OptLinger,
     else {
         isClose_ = false;
         LOG_INFO("========== Server init ==========");
-        LOG_INFO("Port:%d, OpenLinger: %s", listenPort_, OptLinger ? "true" : "false");
+        LOG_INFO("Port:%d", listenPort_);
         LOG_INFO("Listen Mode: %s, OpenConn Mode: %s",
             (listenEvtMode_ & EPOLLET ? "ET" : "LT"),
             (httpConnEvtMode_ & EPOLLET ? "ET" : "LT"));
         LOG_INFO("LogSys level: %d", LLevel);
         LOG_INFO("srcDir: %s", HttpConn::srcDir);
-        LOG_INFO("SqlConnPool num: %d, ThreadPool num: %d", MaxDBConn, ThreadNum);
     }
 }
 
@@ -79,10 +83,11 @@ void WebServer::Start() {
     }
 }
 
-void WebServer::InitEventMode_(TrigMode TriMode) {
+void WebServer::InitEventMode_() {
     listenEvtMode_ = EPOLLRDHUP;    // 监听socket检测到读挂起（即对端关闭），触发
     httpConnEvtMode_ = EPOLLONESHOT | EPOLLRDHUP;    // http socket检测到读挂起触发，且每次触发后需要重新添加到epoll
-    switch (TriMode) {
+    TrigMode trigerMode = static_cast<TrigMode>(ConfigManager::Instance()->GetValue_server("trigMode", 3));
+    switch (trigerMode) {
     case TrigMode::NO_ET:
         break;
     case TrigMode::HTTP_ET:
@@ -100,6 +105,7 @@ void WebServer::InitEventMode_(TrigMode TriMode) {
         listenEvtMode_ |= EPOLLET;
         break;
     }
+    HttpConn::PreInit(httpConnEvtMode_ & EPOLLET);
 }
 
 void WebServer::SetSockLinger() {
@@ -134,7 +140,7 @@ bool WebServer::InitSocket_() {
     }
 
     SetSockAddrReuse();
-    if (optLinger_) SetSockLinger();
+    if (ConfigManager::Instance()->GetValue_server("optLinger", false)) SetSockLinger();
 
     SetFdNonblock(listenFd_);
 

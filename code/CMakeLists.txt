@@ -21,6 +21,7 @@ add_executable(webserver
 
 target_include_directories(webserver PRIVATE
     ${PROJECT_SOURCE_DIR}/code
+    ${PROJECT_SOURCE_DIR}/3rdparty/simpleini
 )
 
 target_link_libraries(webserver

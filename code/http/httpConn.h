@@ -10,10 +10,11 @@
 #include "httpResponse.h"
 #include "../buffer/buffer.h"
 #include "../log/log.h"
+#include "../server/configManager.h"
 
 class HttpConn {
 public:
-    static void PreInit(const char* SrcDir, bool IsET);
+    static void PreInit(bool IsET);
 public:
     HttpConn();
     ~HttpConn();

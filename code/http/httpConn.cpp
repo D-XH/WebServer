@@ -4,8 +4,8 @@ const char* HttpConn::srcDir;
 std::atomic_int HttpConn::userCount;
 bool HttpConn::isET;
 
-void HttpConn::PreInit(const char* SrcDir, bool IsET) {
-    HttpConn::srcDir = SrcDir;
+void HttpConn::PreInit(bool IsET) {
+    HttpConn::srcDir = ConfigManager::Instance()->GetValue_server("srcDir", "");
     HttpConn::isET = IsET;
     HttpConn::userCount = 0;
 }

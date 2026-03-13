@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 
+#include "configManager.h"
 #include "../http/httpConn.h"
 #include "../epoller/epoller.h"
 #include "../pool/threadPool.h"
@@ -10,23 +11,20 @@
 #include "../log/log.h"
 
 enum TrigMode {
-    NO_ET,
-    HTTP_ET,
-    LISTEN_ET,
-    ALL_ET
+    NO_ET = 0,
+    HTTP_ET = 1,
+    LISTEN_ET = 2,
+    ALL_ET = 3
 };
 
 class WebServer {
 public:
-    WebServer(int Port, TrigMode TriMode, int Timeout, bool OptLinger,   // 
-        const char* DBHost, int DBPort, const char* UserName, const char* Pwd, const char* DBName, int MaxDBConn, // 数据库连接初始化
-        int ThreadNum,  // 线程池初始化
-        bool OpenLog, LogLevel LLevel, int LQueueSize); // 日志初始化
+    WebServer(const std::string& ConfigPath); // 日志初始化
     ~WebServer();
 
     void Start();
 private:
-    void InitEventMode_(TrigMode TriMode);
+    void InitEventMode_();
     bool InitSocket_();
 
     void DealListen_();
@@ -53,8 +51,6 @@ private:
     uint16_t listenPort_;
     int httpTimeout_;
 
-    char* srcDir_;
-    bool optLinger_;
     uint32_t listenEvtMode_;
     uint32_t httpConnEvtMode_;
 

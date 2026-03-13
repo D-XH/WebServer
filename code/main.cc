@@ -1,9 +1,14 @@
+#include <unistd.h>
+#include <string>
+#include <iostream>
 #include "server/webServer.h"
 
 int main() {
-    WebServer server(9909, TrigMode::ALL_ET, 60000, false,
-        "localhost", 3306, "deng", "deng", "WebServer", 12,
-        4, true, LogLevel::DEBUG, 1024);
+    std::string cwd(__FILE__);
+    size_t pos = cwd.find_last_of('/');
+    cwd = cwd.substr(0, pos);
+
+    WebServer server((cwd + "/config.ini"));
 
     server.Start();
     return 0;

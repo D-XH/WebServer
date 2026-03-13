@@ -1,0 +1,3 @@
+[submodule "3rdparty/simpleini"]
+	path = 3rdparty/simpleini
+	url = https://github.com/brofield/simpleini.git
