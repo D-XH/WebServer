@@ -1,6 +1,8 @@
 #pragma once
 
+#include <signal.h>
 #include <fcntl.h>
+#include <atomic>
 
 #include "configManager.h"
 #include "../http/httpConn.h"
@@ -44,8 +46,8 @@ private:
     void SetFdNonblock(int Fd);
 private:
     static const int MAX_HTTP_CONN = 65536;
+    static std::atomic_bool isClose_;
 private:
-    bool isClose_;
 
     int listenFd_;
     uint16_t listenPort_;

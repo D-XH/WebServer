@@ -16,17 +16,17 @@ public:
     ThreadPool& operator=(const ThreadPool& o) = delete;
     ThreadPool& operator=(ThreadPool&& o) = delete;
 
-    explicit ThreadPool(int ThreadCount = 8);
+    explicit ThreadPool(int ThreadCount = std::thread::hardware_concurrency());
     ~ThreadPool();
 
     template<typename F, typename... Args>
     auto AddTask(F&& Task, Args&&... args) -> std::future<decltype(Task(args...))>;
 private:
-    void _workLoop();
+    void WorkerLoop_();
 private:
     bool isClose_ = false;
-    std::vector<std::thread> workers_;
     std::queue<std::function<void()>> tasks_;
+    std::vector<std::thread> workers_;
 
     std::mutex mtx_;
     std::condition_variable cond_;
@@ -42,11 +42,11 @@ inline auto ThreadPool::AddTask(F&& Task, Args && ...args) -> std::future<declty
         std::bind(std::forward<F>(Task), std::forward<Args>(args)...)
     );
 
-    std::future<ReturnType> future = task->get_future();
+    auto future = task->get_future();
     {
         std::lock_guard<std::mutex> locker(mtx_);
         if (isClose_) {
-            throw std::runtime_error("ThreadPool has closed!");
+            return std::future<ReturnType>();
         }
         tasks_.emplace([task]() {(*task)();});
     }

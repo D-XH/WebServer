@@ -1,5 +1,7 @@
 #include "webServer.h"
 
+std::atomic_bool WebServer::isClose_ = false;
+
 WebServer::WebServer(const std::string& ConfigPath)  // 日志初始化
     :
     threadPool_(4),
@@ -28,13 +30,16 @@ WebServer::WebServer(const std::string& ConfigPath)  // 日志初始化
     long maxDBConn = ConfigManager::Instance()->GetValue_database("maxDBConn", 16);
     SqlConnPool::Instance()->Init(host, port, username, password, dbName, maxDBConn);
 
+    // 注册退出信号
+    signal(SIGINT, [](int id) {WebServer::isClose_.store(true);});
+
     // socket初始化，建立监听
     if (!InitSocket_()) {
-        isClose_ = true;
+        WebServer::isClose_.store(true);
         LOG_ERROR("========== Server init error!==========")
     }
     else {
-        isClose_ = false;
+        WebServer::isClose_.store(false);
         LOG_INFO("========== Server init ==========");
         LOG_INFO("Port:%d", listenPort_);
         LOG_INFO("Listen Mode: %s, OpenConn Mode: %s",
@@ -47,15 +52,17 @@ WebServer::WebServer(const std::string& ConfigPath)  // 日志初始化
 
 WebServer::~WebServer() {
     close(listenFd_);
-    isClose_ = true;
     SqlConnPool::Instance()->Close();
 }
 
 void WebServer::Start() {
-    if (!isClose_) { LOG_INFO("========== Server start =========="); }
+    if (!WebServer::isClose_.load()) {
+        LOG_INFO("========== Server start ==========");
+        std::cout << "========== Server start ==========" << std::endl;
+    }
 
     int tickTime = -1;
-    while (!isClose_) {
+    while (!WebServer::isClose_.load()) {
         // 主循环
         if (httpTimeout_ > 0) {
             tickTime = timer_.GetNextTick();

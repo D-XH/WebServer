@@ -4,7 +4,7 @@ ThreadPool::ThreadPool(int ThreadCount) {
     assert(ThreadCount > 0);
 
     for (int i = 0; i < ThreadCount; ++i) {
-        workers_.emplace_back(&ThreadPool::_workLoop, this);
+        workers_.emplace_back(&ThreadPool::WorkerLoop_, this);
     }
 }
 
@@ -22,14 +22,14 @@ ThreadPool::~ThreadPool() {
     }
 }
 
-void ThreadPool::_workLoop() {
+void ThreadPool::WorkerLoop_() {
+    std::unique_lock locker(mtx_);
     while (true) {
-        std::unique_lock locker(mtx_);
         cond_.wait(locker, [this]() {return isClose_ || !tasks_.empty();});     // 线程池关闭，或者任务队列非空
 
         if (isClose_ && tasks_.empty()) break;   // 线程池关闭了，所有任务执行完毕
 
-        auto task = tasks_.front();
+        auto task = std::move(tasks_.front());
         tasks_.pop();
         locker.unlock();
 
@@ -37,8 +37,8 @@ void ThreadPool::_workLoop() {
             task();
         }
         catch (const std::exception& e) {
-
             std::cerr << e.what() << '\n';
         }
+        locker.lock();
     }
 }
